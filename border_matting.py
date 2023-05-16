@@ -2,22 +2,6 @@ import numpy as np
 import cv2
 import math
 
-'''
-Implementation of the border matting algorithm based on paper:
-Available at: https://dl.acm.org/doi/10.1145/1186562.1015720?fbclid=IwAR2gI_CV9mQmJD8lLp_DoHJw9Zl8QdKWxUp_J7CFLr_god47yYVqp1w_-TE
-
-This is the term project of digital image processing course in NTU.
-This code do border matting on a given image and its trimap.
-
-Input: a preprocessed image's trimap
-Output: a resulting alpha map after applying border matting
-
-Note: Now available, but there are still some problems:
-1. The result seems not really satisfying, still checking the reason.
-2. The program is not optimized, so it may take a long time to run.
-
-'''
-
 class BorderMatting:
     def __init__(self, img, trimap):
         self.img = img
@@ -48,6 +32,7 @@ class BorderMatting:
     def find_contour(self):
         # TODO: use cv2 or hand-crafted one
         self.trimap = np.uint8(self.trimap)
+        self.trimap = cv2.dilate(self.trimap, kernel=np.ones((3, 3), np.uint8), iterations=2)
         edges = cv2.Canny(self.trimap, threshold1=2, threshold2=3)
 
         # construct new trimap
@@ -91,8 +76,8 @@ class BorderMatting:
         ''' equation (12) in the paper '''
         # TODO: check errors
         # previous delta and sigma
-        _delta = self.delta_level
-        _sigma = self.sigma_level
+        _delta = 1
+        _sigma = 1
 
         for point in self.C:
             energy = 10000000000000
@@ -100,11 +85,15 @@ class BorderMatting:
             best_sigma = None
             for delta in range(1, self.delta_level):
                 for sigma in range(1, self.sigma_level):
+                    delta = delta / self.delta_level * self.w
+                    sigma = sigma / self.sigma_level * self.w
                     V = self.smoothing_regularizer(delta, _delta, sigma, _sigma)
                     D = 0
                     pixel_group = self.D[point]
                     for pixel in pixel_group:
                         distance = ((pixel[0] - point[0]) ** 2 + (pixel[1] - point[1]) ** 2) ** 0.5
+                        if self.trimap[pixel[0]][pixel[1]] == 0:
+                            distance = -distance
                         alpha = self.distance_to_alpha(distance, sigma, delta)
                         # print(alpha)
                         tmp = self.data_term(alpha, point)
@@ -144,9 +133,15 @@ class BorderMatting:
             pixel_group = self.D[point]
             for pixel in pixel_group:
                 distance = ((pixel[0] - point[0]) ** 2 + (pixel[1] - point[1]) ** 2) ** 0.5
+                if self.trimap[pixel[0]][pixel[1]] == 0:
+                    distance = -distance
                 alpha = self.distance_to_alpha(distance, sigma, delta)
                 # print(alpha)
                 alpha_map[pixel[0]][pixel[1]] = alpha
+            distance = 0
+            alpha = self.distance_to_alpha(distance, sigma, delta)
+            alpha_map[point[0]][point[1]] = alpha
+        print(alpha_map)
         return alpha_map
     
 
@@ -160,7 +155,7 @@ class BorderMatting:
     def data_term(self, alpha, pos):
         ''' equation (14) in the paper '''
         # TODO: log2 or log10?
-        return -1 * math.log(self.gaussian(alpha, self.alpha_mean(alpha, pos), self.alpha_variance(alpha, pos)))
+        return -1 * math.log(self.gaussian(alpha, self.alpha_mean(alpha, pos), self.alpha_variance(alpha, pos))) / math.log(2)
     
 
     def alpha_mean(self, alpha, pos):
@@ -200,9 +195,8 @@ class BorderMatting:
     
 
     def distance_to_alpha(self, distance, sigma, delta):
-        out = 1 / (1 + np.exp(-1 * (distance - delta) / sigma))
-        # print(distance)
-        # print(out)
+        if distance < 0:
+            return 0
         return 1 / (1 + np.exp(-1 * (distance - delta) / sigma))
     
 
