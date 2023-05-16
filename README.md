@@ -21,3 +21,15 @@ There are five main steps:
 Remain problems:
 
 1. If use the same settings as the paper provides, it takes too much time to minimize the energy.
+
+Results on grayscale image:
+
+<img src="./testin.png" width="100" height="100" >   <img src="./testout.png" width="100" height="100" >
+
+Results on color image:
+
+<img src="./demo.png" width="500" height="200" >
+
+(left) : After Bordermatting
+
+(right) : Before Bordermatting
